@@ -2008,7 +2008,6 @@ void init_stream_server(void)
 void *stream_key_delayer(void *UNUSED(arg))
 {
 	int32_t i, j;
-	const uint8_t ecm = 0;
 	emu_stream_client_key_data *cdata;
 	LL_ITER it;
 	emu_stream_cw_item *item;
