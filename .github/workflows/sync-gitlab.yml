@@ -21,5 +21,4 @@ jobs:
         git remote add --track master streamboard https://git.streamboard.tv/common/oscam.git
         git fetch streamboard
         git merge streamboard/master
-        git push origin
-        git push origin --tags
+        git push --follow-tags origin
