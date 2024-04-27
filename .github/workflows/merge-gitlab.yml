@@ -1,0 +1,22 @@
+name: merge oscam-gitlab
+
+on:
+  push:
+    branches:
+      - oscam-gitlab
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: master
+
+    - name: sync
+      run: |
+        git config --global user.name "oscam-emu"
+        git config --global user.email "oscam-emu@users.noreply.github.com"
+        git merge oscam-gitlab
+        git push --follow-tags origin
