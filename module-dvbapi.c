@@ -673,8 +673,8 @@ int32_t dvbapi_net_send(uint32_t request, int32_t socket_fd, uint32_t msgid, int
 				cs_strncat(capabilities, ",e2", sizeof(capabilities)); // usage of DES algo signalled through PID index - CSA and DES only
 			}
 
-			*info_len = snprintf((char *) &packet[size], sizeof(packet) - size, "OSCam v%s, build r%s@%s (%s); %s",
-						CS_VERSION, CS_SVN_VERSION, CS_GIT_COMMIT, CS_TARGET, capabilities + 1);
+			*info_len = snprintf((char *) &packet[size], sizeof(packet) - size, "OSCam %s (%s); %s",
+						CS_VERSION, CS_TARGET, capabilities + 1);
 
 			size += *info_len;
 			break;
@@ -6746,7 +6746,7 @@ static void *dvbapi_main_local(void *cli)
 #if defined WITH_COOLAPI || defined WITH_COOLAPI2 || defined WITH_NEUTRINO
 	int sysret = system("pzapit -rz");
 	if(sysret == -1){
-		// To avoid not used and correct error handling by not ignoring system return value
+  		// To avoid not used and correct error handling by not ignoring system return value
 	}
 #endif
 	cs_ftime(&start); // register start time
@@ -8046,7 +8046,6 @@ void dvbapi_write_ecminfo_file(struct s_client *client, ECM_REQUEST *er, uint8_t
 		const char *reader_name = NULL, *from_name = NULL, *proto_name = NULL, *from_device= NULL ;
 		int8_t hops = 0;
 		int32_t from_port = 0;
-		uint8_t null_cw8[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 		char system_name[64];
 		const char *const_system_name = get_cardsystem_desc_by_caid(er->caid);
 
@@ -8225,24 +8224,13 @@ void dvbapi_write_ecminfo_file(struct s_client *client, ECM_REQUEST *er, uint8_t
 		if(cfg.dvbapi_ecminfo_type == ECMINFO_TYPE_CAMD3)
 		{
 			fprintf(ecmtxt, "FROM: %s\n", reader_name);
-			fprintf(ecmtxt, "CW0: %s\n", cs_hexdump(1, er->cw, cw_length, tmp, sizeof(tmp)));
-			fprintf(ecmtxt, "CW1: %s\n", cs_hexdump(1, er->cw + 8, cw_length, tmp, sizeof(tmp)));
-		}
-		else if(caid_is_videoguard(er->caid))
-		{
-			if(memcmp(er->cw, null_cw8, 8) != 0)
-			{
-				fprintf(ecmtxt, "cw: %s\n", cs_hexdump(1, er->cw, cw_length, tmp, sizeof(tmp)));
-			}
-			else
-			{
-				fprintf(ecmtxt, "cw: %s\n", cs_hexdump(1, er->cw + 8, cw_length, tmp, sizeof(tmp)));
-			}
+			fprintf(ecmtxt, "CW0: %s\n", cs_hexdump(1, lastcw0, cw_length, tmp, sizeof(tmp)));
+			fprintf(ecmtxt, "CW1: %s\n", cs_hexdump(1, lastcw1, cw_length, tmp, sizeof(tmp)));
 		}
 		else
 		{
-			fprintf(ecmtxt, "cw0: %s\n", cs_hexdump(1, er->cw, cw_length, tmp, sizeof(tmp)));
-			fprintf(ecmtxt, "cw1: %s\n", cs_hexdump(1, er->cw + 8, cw_length, tmp, sizeof(tmp)));
+			fprintf(ecmtxt, "cw0: %s\n", cs_hexdump(1, lastcw0, cw_length, tmp, sizeof(tmp)));
+			fprintf(ecmtxt, "cw1: %s\n", cs_hexdump(1, lastcw1, cw_length, tmp, sizeof(tmp)));
 		}
 
 		if(cfg.dvbapi_ecminfo_type == ECMINFO_TYPE_WICARDD || cfg.dvbapi_ecminfo_type == ECMINFO_TYPE_MGCAMD)

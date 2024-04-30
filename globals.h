@@ -368,16 +368,18 @@
 /* ===========================
  *			constants
  * =========================== */
-#define CS_VERSION				"1.30"
-#ifndef CS_SVN_VERSION
-# define CS_SVN_VERSION			"11771"
+#define SCM_URL					"https://github.com/oscam-emu/oscam-patched"
+#define WIKI_URL				"https://wiki.streamboard.tv/wiki"
+#define BOARD_URL				"https://board.streamboard.tv"
+#ifndef CS_VERSION
+#define CS_VERSION				"2.24.04-11777"
 #endif
 #ifndef CS_GIT_COMMIT
-# define CS_GIT_COMMIT			"a2b4c6d8"
+#define CS_GIT_COMMIT			"a2b4c6d8"
 #endif
 #ifdef CS_CACHEEX
 #ifdef CS_CACHEEX_AIO
-#define CS_AIO_VERSION			CS_SVN_VERSION
+#define CS_AIO_VERSION			CS_VERSION
 #endif
 #endif
 #ifndef CS_TARGET

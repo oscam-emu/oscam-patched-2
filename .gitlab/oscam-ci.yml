@@ -1,167 +1,139 @@
+include:
+  - local: .gitlab/oscam-helper.yml
+
+variables:
+  FF_USE_FASTZIP: 1
+  TRANSFER_METER_FREQUENCY: "2s"
+  ARTIFACT_COMPRESSION_LEVEL: "default"
+  CACHE_COMPRESSION_LEVEL: "default"
+  CACHE_REQUEST_TIMEOUT: 5
+
 stages:
   - build
   - test
-  - deploy
+  - fixup
+  - new-version
+
+info:
+  stage: .pre
+  tags:
+    - build
+  variables:
+    GIT_STRATEGY: none
+  rules:
+    - if: $GITLAB_USER_NAME != 'pipeline-user'
+  script:
+    - !reference [.helper, runner-info]
+  allow_failure: true
+
+setup:
+  stage: .pre
+  tags:
+    - build
+  variables:
+    GIT_STRATEGY: none
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event' && $SETUP_BUILD_ENV == 'True'
+    - if: $CI_PIPELINE_SOURCE == 'schedule' && $SETUP_BUILD_ENV == 'True'
+  script:
+    - !reference [.helper, runner-setup]
+  allow_failure: true
 
 oscam-make-build:
   stage: build
   tags:
-    - buildtest
+    - build
+  variables:
+    OSCAM_BUILD: "make"
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_PIPELINE_SOURCE == 'schedule'
   script:
-    - export LC_ALL=C
-    - DISABLE_OPT="WITH_ARM_NEON"
-    - echo "List some debug information..."
-    - openssl version
-    - if ! ls -la /usr/lib/libdvbcsa.* 2>/dev/null; then
-        if ! ls -la /usr/local/lib/libdvbcsa.* 2>/dev/null; then
-            DISABLE_OPT+=" MODULE_STREAMRELAY";
-        fi;
-      fi;
-    - if ! ls -la /usr/include/openssl/aes.h 2>/dev/null; then DISABLE_OPT+=" WITH_SSL"; fi
-
-    - echo "Build oscam via make"
-    - ./config.sh --enable all --disable $DISABLE_OPT | tee Distribution/oscam-make-build.log
-    - make OSCAM_BIN=Distribution/oscam | tee -a Distribution/oscam-make-build.log
+    - !reference [.helper, custom-checkout]
+    - !reference [.helper, oscam-make]
   artifacts:
     paths:
-    - Distribution/oscam
-    - Distribution/oscam-make-build.log
+      - build/oscam-${OSCAM_BUILD}
+      - build/oscam-${OSCAM_BUILD}-build.log
     expire_in: 1 week
+  allow_failure: true
 
 oscam-cmake-build:
   stage: build
   tags:
-    - buildtest
+    - build
+  variables:
+    OSCAM_BUILD: "cmake"
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_PIPELINE_SOURCE == 'schedule'
   script:
-    - export LC_ALL=C
-    - DISABLE_OPT="WITH_ARM_NEON"; CMAKE_OPT="-DWITH_ARM_NEON=0";
-    - echo "List some debug information..."
-    - openssl version
-    - if ! ls -la /usr/lib/libdvbcsa.* 2>/dev/null; then
-        if ! ls -la /usr/local/lib/libdvbcsa.* 2>/dev/null; then
-            DISABLE_OPT+=" MODULE_STREAMRELAY";
-        else
-            CMAKE_OPT+=" -DHAVE_LIBDVBCSA=1";
-        fi;
-      else
-        CMAKE_OPT+=" -DHAVE_LIBDVBCSA=1";
-      fi;
-    - if ! ls -la /usr/include/openssl/aes.h 2>/dev/null; then
-        DISABLE_OPT+=" WITH_SSL";
-      fi;
-
-    - echo "Build oscam via cmake"
-    - rm -rf build; mkdir build; cd build
-    - ../config.sh --enable all --disable $DISABLE_OPT | tee oscam-make-build.log
-    - cmake $CMAKE_OPT .. | tee -a oscam-make-build.log
-    - make | tee -a oscam-make-build.log
+    - !reference [.helper, custom-checkout]
+    - !reference [.helper, oscam-cmake]
   artifacts:
     paths:
-    - build/oscam
-    - build/oscam-make-build.log
+      - build/oscam-${OSCAM_BUILD}
+      - build/oscam-${OSCAM_BUILD}-build.log
     expire_in: 1 week
+  allow_failure: true
 
 oscam-make-test:
   stage: test
   tags:
-    - buildtest
+    - test
+  needs: [oscam-make-build]
+  variables:
+    GIT_STRATEGY: none
+    OSCAM_BUILD: "make"
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-  needs: [oscam-make-build]
+    - if: $CI_PIPELINE_SOURCE == 'schedule'
   script:
-    - echo -e "[global]\nlogfile = ;stdout\n\n[streamrelay]\nstream_relay_enabled = 1\n\n[dvbapi]\nenabled = 0" > Distribution/oscam.conf
-    - Distribution/oscam --help | head -n 12 | tee oscam-make-test.log
-    - if timeout 3 Distribution/oscam --config-dir ./Distribution/ --temp-dir ./Distribution/ | tee -a oscam-make-test.log; then echo; fi
+    - !reference [.helper, oscam-startup-test]
   artifacts:
     paths:
-    - oscam-make-test.log
+      - build/oscam-${OSCAM_BUILD}-test.log
     expire_in: 1 week
+  allow_failure: true
 
 oscam-cmake-test:
   stage: test
   tags:
-    - buildtest
+    - test
+  needs: [oscam-cmake-build]
+  variables:
+    GIT_STRATEGY: none
+    OSCAM_BUILD: "cmake"
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-  needs: [oscam-cmake-build]
+    - if: $CI_PIPELINE_SOURCE == 'schedule'
   script:
-    - echo -e "[global]\nlogfile = ;stdout\n\n[streamrelay]\nstream_relay_enabled = 1\n\n[dvbapi]\nenabled = 0" > build/oscam.conf
-    - build/oscam --help | head -n 12 | tee oscam-cmake-test.log
-    - if timeout 3 build/oscam --config-dir ./build/ --temp-dir ./build/ | tee -a oscam-cmake-test.log; then echo; fi
+    - !reference [.helper, oscam-startup-test]
+  allow_failure: true
   artifacts:
     paths:
-    - oscam-cmake-test.log
+      - build/oscam-${OSCAM_BUILD}-test.log
     expire_in: 1 week
 
 code-cleanup:
-  stage: deploy
+  stage: fixup
   tags:
-    - cleansing
+    - clean
+  needs: [oscam-make-build, oscam-cmake-build]
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event' && $GITLAB_USER_NAME != 'pipeline-user'
+    - if: $CI_PIPELINE_SOURCE == 'schedule' && $GITLAB_USER_NAME != 'pipeline-user'
   dependencies: []
   script:
-    - export LC_ALL=C
-    - echo "Fixing trailing whitespaces automation process..."
-    - if git grep -I -n -l '[[:space:]]$' | xargs sed -i 's/[[:space:]]*$//' 2>/dev/null; then
-        echo "Setting up git properties...";
-        git config user.name "pipeline-user";
-        git config user.email "pipeline-user@users.noreply.git.streamboard.tv";
-        echo "Fixing trailing whitespaces...";
-        git status --verbose;
-        if git commit -am "Fix trailing whitespaces"; then
-            git push "http://version-pipeline:${GIT_PUSH_TOKEN}@${CI_REPOSITORY_URL#*@}" HEAD:$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME;
-        fi;
-      fi;
-    - echo "Fixing trailing whitespaces automation complete."
+    - !reference [.helper, fix-whitespaces]
+  allow_failure: true
 
 auto-version:
+  stage: new-version
   tags:
-    - versioning
+    - version
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $GITLAB_USER_NAME != 'pipeline-user'
   script:
-    - export LC_ALL=C
-    - echo "Versioning automation process..."
-    - git fetch --unshallow
-    - git switch $CI_COMMIT_BRANCH
-    - echo "List some debug information..."
-    - git status --verbose
-    - git branch --list --all
-    - git tag --list
-    - git describe --tags --abbrev=0 2>/dev/null
-    - git rev-parse --short HEAD
-    - ./config.sh --oscam-revision
-    - ./config.sh --oscam-commit
-
-    - echo "Setting up git properties..."
-    - git config user.name "pipeline-user"
-    - git config user.email "pipeline-user@users.noreply.git.streamboard.tv"
-
-    - echo "Calculating new tag value..."
-    - curr_tag=$(git describe --tags --abbrev=0 2>/dev/null)
-    - new_tag=$(( $curr_tag + 1 ))
-
-    - echo "Updating version information in globals.h..."
-    - sed -i "/# define CS_SVN_VERSION/s/.*/# define CS_SVN_VERSION\t\t\t\"$new_tag\"/" globals.h
-    - git diff globals.h
-    - git add globals.h
-    - git commit --amend --no-edit
-    - sha=$(git rev-parse HEAD)
-
-    - if git tag --list | grep -iq "$new_tag"; then
-        echo "Removing existing tag:$new_tag...";
-        git tag --delete "$new_tag";
-        git push "http://version-pipeline:${GIT_PUSH_TOKEN}@${CI_REPOSITORY_URL#*@}" --delete "$new_tag";
-      fi;
-
-    - echo "Creating new tag:$new_tag on sha:$sha..."
-    - git tag --annotate "$new_tag" -m "Revision $new_tag" "$sha"
-
-    - echo "Pushing forced changes to repo..."
-    - git push --force --follow-tags "http://version-pipeline:${GIT_PUSH_TOKEN}@${CI_REPOSITORY_URL#*@}" HEAD:$CI_COMMIT_BRANCH
-    - echo "Versioning automation complete."
+    - !reference [.helper, tag-version]
+  allow_failure: false

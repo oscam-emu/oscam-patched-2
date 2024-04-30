@@ -86,8 +86,6 @@ static void refresh_lcd_file(void)
 			}
 
 			fprintf(fpsave, "Version: %s\n", CS_VERSION);
-			fprintf(fpsave, "Revision: %s\n", CS_SVN_VERSION);
-			fprintf(fpsave, "Commit: %s\n", CS_GIT_COMMIT);
 			if(days == 0)
 				{ fprintf(fpsave, "up: %02d:%02d:%02d\n", hours, mins, secs); }
 			else

@@ -2820,11 +2820,11 @@ int32_t cc_parse_msg(struct s_client *cl, uint8_t *buf, int32_t l)
 				{
 					uint8_t token[256];
 #ifdef CS_CACHEEX_AIO
-					snprintf((char *)token, sizeof(token), "PARTNER: OSCam v%s, build r%s@%s (%s) [EXT,SID,SLP,LGF]",
+					snprintf((char *)token, sizeof(token), "PARTNER: OSCam %s (%s) [EXT,SID,SLP,LGF]",
 #else
-					snprintf((char *)token, sizeof(token), "PARTNER: OSCam v%s, build r%s@%s (%s) [EXT,SID,SLP]",
+					snprintf((char *)token, sizeof(token), "PARTNER: OSCam %s (%s) [EXT,SID,SLP]",
 #endif
-								CS_VERSION, CS_SVN_VERSION, CS_GIT_COMMIT, CS_TARGET);
+								CS_VERSION, CS_TARGET);
 
 					cc_cmd_send(cl, token, cs_strlen((char *)token) + 1, MSG_CW_NOK1);
 				}
@@ -3164,8 +3164,8 @@ int32_t cc_parse_msg(struct s_client *cl, uint8_t *buf, int32_t l)
 						}
 
 						uint8_t token[256];
-						snprintf((char *)token, sizeof(token), "PARTNER: OSCam v%s, build r%s@%s (%s)%s",
-								CS_VERSION, CS_SVN_VERSION, CS_GIT_COMMIT, CS_TARGET, param);
+						snprintf((char *)token, sizeof(token), "PARTNER: OSCam %s (%s)%s",
+								CS_VERSION, CS_TARGET, param);
 
 						cc_cmd_send(cl, token, cs_strlen((char *)token) + 1, MSG_CW_NOK1);
 					}

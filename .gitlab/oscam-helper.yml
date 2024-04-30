@@ -1,0 +1,208 @@
+.helper:
+  #get some system information
+  runner-info:
+    - |
+      echo "Runner system information..."
+      echo "System: $(uname -a)"
+      echo "Host: $(cat /etc/hostname)"
+      echo "Version: $(cat /etc/issue)"
+      echo "User: $(whoami)"
+
+  #setup build environment for oscam
+  runner-setup:
+    - | #install packages via package manager
+      echo "Installing build prerequisites..."
+      sudo apt -y update
+      sudo apt -y install build-essential automake libtool cmake libssl-dev curl jq
+
+    - | #get processor capabilities
+      echo "Installing libdvbcsa from source..."
+      FLAGS="$(cat /proc/cpuinfo | grep -im1 flags | awk -F':' '{print $2}')" || echo
+      FLAGS+="$(cat /proc/cpuinfo | grep -im1 features | awk -F':' '{print $2}')" || echo
+
+    - | #autodetect libdvbcsa optimization
+      echo "$FLAGS" | grep -qiw 'altivec' && optimization="--enable-altivec"
+      [ -z "$optimization" ] && echo "$FLAGS" | grep -qiw "avx2" && optimization="--enable-avx2"
+      [ -z "$optimization" ] && echo "$FLAGS" | grep -qiw "ssse3" && optimization="--enable-ssse3"
+      [ -z "$optimization" ] && echo "$FLAGS" | grep -qiw "sse2" && optimization="--enable-sse2"
+      [ -z "$optimization" ] && echo "$FLAGS" | grep -qiw "mmx" && optimization="--enable-mmx"
+      if [ -z "$optimization" ]; then
+        if [ -n "$(find "/usr/lib" -name "arm_neon.h" -type f -print -quit)" ]; then
+            echo "$FLAGS" | grep -qiw "neon\|simd\|asimd" && optimization="--enable-neon";
+        fi;
+      fi;
+      [ -z "$optimization" ] && optimization="--enable-uint32"
+      echo "libdvbcsa optimization autodetection: $optimization"
+
+    - | #gettings libdvbcsa patched sources
+      rm -rf ./libdvbcsa
+      git clone https://github.com/oe-mirrors/libdvbcsa.git ./libdvbcsa
+      cd ./libdvbcsa
+
+    - | #compile & install libdvbcsa
+      ./bootstrap && ./configure $optimization
+      (($?)) && exit 1;
+      make -j$(nproc) || exit 1;
+      sudo make install || exit 1;
+
+    - | #update library cache
+      sudo ldconfig
+      sudo ldconfig -v
+
+  #checkout git repository parts (needs variables GIT_STRATEGY: none and e.g. GIT SPARSE_FILTER: .gitlab to be set in the calling job)
+  sparse-checkout:
+    - |
+      ls -A1 | xargs rm -rf
+      if [ $CI_PIPELINE_SOURCE == 'merge_request_event' ]; then
+        git clone --branch $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME --sparse --no-checkout --depth 1 $CI_REPOSITORY_URL ./;
+      else
+        git clone --branch $CI_COMMIT_BRANCH --sparse --no-checkout --depth 1 $CI_REPOSITORY_URL ./;
+      fi;
+      git sparse-checkout set --no-cone "$GIT_SPARSE_FILTER"
+      git -c advice.detachedHead=false checkout $([ ! -z $GIT_REF ] && printf "$GIT_REF" || printf "$CI_COMMIT_SHA")
+      la -la
+
+  #checkout a specific git reference (needs variable GIT_REF: commit|branch|tag to be set in the calling job)
+  custom-checkout:
+    - if [ ! -z $GIT_REF ]; then
+        echo "Checking out specific git reference $GIT_REF...";
+        git fetch --unshallow;
+        git checkout $GIT_REF;
+      fi;
+
+  #sets the git properties for user pipeline-user
+  set-git-properties:
+    - |
+      echo "Setting up git properties..."
+      git config user.name "pipeline-user"
+      git config user.email "pipeline-user@users.noreply.git.streamboard.tv"
+
+  #run oscam make test build
+  oscam-make:
+    - | #autodetect build options
+      export LC_ALL=C
+      [ -z "$(find "/usr/lib" -name "arm_neon.h" -type f -print -quit)" ] && DISABLE_OPT="WITH_ARM_NEON"
+      echo "List some debug information..."
+      openssl version
+      if ! ls -la /usr/lib/libdvbcsa.* 2>/dev/null; then
+        if ! ls -la /usr/local/lib/libdvbcsa.* 2>/dev/null; then
+            DISABLE_OPT+=" MODULE_STREAMRELAY";
+        fi;
+      fi;
+      if ! ls -la /usr/include/openssl/aes.h 2>/dev/null; then DISABLE_OPT+=" WITH_SSL"; fi
+
+    - | #oscam make build
+      echo "Build oscam via make"
+      [ ! -d build ] && mkdir build
+      ./config.sh --enable all --disable $DISABLE_OPT | tee build/oscam-make-build.log
+      make OSCAM_BIN=build/oscam-make | tee -a build/oscam-make-build.log
+      if grep -cq 'warning:' build/oscam-make-build.log; then
+        echo "Please check your commit, build warnings occurred!";
+        exit 1;
+      fi;
+
+  #run oscam cmake test build
+  oscam-cmake:
+    - | #autodetect build options
+      export LC_ALL=C
+      [ -z "$(find "/usr/lib" -name "arm_neon.h" -type f -print -quit)" ] && DISABLE_OPT="WITH_ARM_NEON" && CMAKE_OPT="-DWITH_ARM_NEON=0";
+      echo "List some debug information..."
+      openssl version
+      if ! ls -la /usr/lib/libdvbcsa.* 2>/dev/null; then
+        if ! ls -la /usr/local/lib/libdvbcsa.* 2>/dev/null; then
+            DISABLE_OPT+=" MODULE_STREAMRELAY";
+        else
+            CMAKE_OPT+=" -DHAVE_LIBDVBCSA=1";
+        fi;
+      else
+        CMAKE_OPT+=" -DHAVE_LIBDVBCSA=1";
+      fi;
+      if ! ls -la /usr/include/openssl/aes.h 2>/dev/null; then
+        DISABLE_OPT+=" WITH_SSL";
+      fi;
+
+    - | #oscam cmake build
+      echo "Build oscam via cmake"
+      [ ! -d build ] && mkdir build; cd build
+      ../config.sh --enable all --disable $DISABLE_OPT | tee oscam-cmake-build.log
+      cmake $CMAKE_OPT .. | tee -a oscam-cmake-build.log
+      make | tee -a oscam-cmake-build.log
+      [ -f oscam ] && mv oscam oscam-cmake
+      if grep -cq 'warning:' oscam-cmake-build.log; then
+        echo "Please check your commit, build warnings occurred!";
+        exit 1;
+      fi;
+
+  #runs a simple oscam startup test (needs variable OSCAM_BUILD: make|cmake to be set in the calling job)
+  oscam-startup-test:
+    - |
+      curl --silent "https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/download-secure-files/-/raw/main/installer" | bash
+      build/oscam-${OSCAM_BUILD} --help | head -n 12 | tee build/oscam-${OSCAM_BUILD}-test.log
+      if timeout 5 build/oscam-${OSCAM_BUILD} --config-dir .secure_files/ --temp-dir ./build/ | tee -a build/oscam-${OSCAM_BUILD}-test.log; then echo; fi
+
+  #fix trailing white and convert dos2unix
+  fix-whitespaces:
+    - !reference [.helper, set-git-properties]
+    - |
+      export LC_ALL=C
+      echo "Fixing trailing whitespaces automation process..."
+      if git grep -I -n -l '[[:space:]]$' | xargs sed -i 's/[[:space:]]*$//' 2>/dev/null; then
+        echo "Fixing trailing whitespaces...";
+        git status --verbose;
+        if git commit -am "Fix trailing whitespaces"; then
+            if [ $CI_PIPELINE_SOURCE == 'merge_request_event' ]; then
+                git push "https://pipeline-user:${GIT_PUSH_TOKEN}@${CI_REPOSITORY_URL#*@}" HEAD:$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME;
+            else
+                git push "https://pipeline-user:${GIT_PUSH_TOKEN}@${CI_REPOSITORY_URL#*@}" HEAD:$CI_COMMIT_BRANCH;
+            fi;
+            echo "Please check the additional commit!";
+            exit 1;
+        fi;
+      else
+        echo "No trailing whitespaces found.";
+      fi;
+      echo "Fixing trailing whitespaces automation complete."
+
+  #tag last commit with revision number and update CS_VERSION variable in globals.h
+  tag-version:
+    - |
+      export LC_ALL=C
+      echo "Versioning automation process..."
+      echo "List some debug information..."
+      git status --verbose || echo
+
+    - |
+      echo "Calculating new TAG and VERSION values..."
+      TAG_API_URL="$CI_API_V4_URL/projects/$CI_PROJECT_ID/repository/tags"
+      curr_tag="$(curl -s "$TAG_API_URL" | jq -r '.[0].name')"
+      new_tag=$(($curr_tag + 1))
+      new_ver="$(date +%y.%m)-$new_tag"
+      echo "New TAG: $new_tag"
+      echo "New VERSION: $new_ver"
+
+    - !reference [.helper, set-git-properties]
+
+    - |
+      echo "Updating VERSION information in globals.h..."
+      sed -i "/^#define CS_VERSION/s/\.[0-9].*\"/.$new_ver\"/" globals.h
+      git diff globals.h
+      git add globals.h
+      git commit --amend --no-edit
+      sha=$(git rev-parse HEAD)
+
+    - |
+      if [ "$(curl -s "${TAG_API_URL}/${new_tag}" | jq -r '.name')" == "$new_tag" ]; then
+        echo "Removing existing TAG $new_tag...";
+        curl --request DELETE \
+             --header "PRIVATE-TOKEN: ${GIT_PUSH_TOKEN}" \
+             --url "${TAG_API_URL}/${new_tag}"
+      fi;
+
+    - |
+      echo "Creating new tag:$new_tag on sha:$sha..."
+      git tag --annotate "$new_tag" -m "Revision $new_tag" "$sha"
+
+    - |
+      echo "Pushing changes (forced) to repository..."
+      git push --force --follow-tags "https://pipeline-user:${GIT_PUSH_TOKEN}@${CI_REPOSITORY_URL#*@}" HEAD:$CI_COMMIT_BRANCH
+      echo "Versioning automation complete."

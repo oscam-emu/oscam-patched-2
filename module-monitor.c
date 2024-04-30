@@ -364,7 +364,7 @@ static void monitor_send_details(char *txt, uint32_t tid)
 static void monitor_send_details_version(void)
 {
 	char buf[256];
-	snprintf(buf, sizeof(buf), "[V-0000]version=%s, build=%s, commit=%s, system=%s\n", CS_VERSION, CS_SVN_VERSION, CS_GIT_COMMIT, CS_TARGET);
+	snprintf(buf, sizeof(buf), "[V-0000]version=%s, system=%s\n", CS_VERSION, CS_TARGET);
 	monitor_send_info(buf, 1);
 }
 
@@ -377,7 +377,7 @@ static void monitor_send_keepalive_ack(void)
 
 static void monitor_process_details_master(char *buf, uint32_t pid)
 {
-	snprintf(buf, 256, "Version=%sr%s@%s", CS_VERSION, CS_SVN_VERSION, CS_GIT_COMMIT);
+	snprintf(buf, 256, "Version=%s", CS_VERSION);
 	monitor_send_details(buf, pid);
 	snprintf(buf, 256, "System=%s", CS_TARGET);
 	monitor_send_details(buf, pid);

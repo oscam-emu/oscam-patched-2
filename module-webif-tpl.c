@@ -588,7 +588,7 @@ int32_t tpl_saveIncludedTpls(const char *path)
 		{
 			if(strncmp(tpl->tpl_name, "IC", 2) != 0)
 			{
-				fprintf(fp, "<!--OSCam;%d;%s;%s@%s;%s-->\n", crc32(0, (uint8_t *)tpl->tpl_data, tpl->tpl_data_len), CS_VERSION, CS_SVN_VERSION, CS_GIT_COMMIT, tpl->tpl_deps);
+				fprintf(fp, "<!--OSCam;%d;%s;%s-->\n", crc32(0, (uint8_t *)tpl->tpl_data, tpl->tpl_data_len), CS_VERSION, tpl->tpl_deps);
 			}
 			fwrite(tpl->tpl_data, tpl->tpl_data_len, 1, fp);
 			fclose(fp);
@@ -638,7 +638,7 @@ void tpl_checkOneDirDiskRevisions(const char *subdir)
 				else { error = 0; }
 			}
 			else { cs_log("WARNING: Your http disk template %s is in the old template format without revision info. Please consider upgrading it!", path); }
-			if(error) { cs_log("If you are sure that it is current, add the following line at the beginning of the template to suppress this warning: <!--OSCam;%lu;%s;%s@%s;%s-->", curchecksum, CS_VERSION, CS_SVN_VERSION, CS_GIT_COMMIT, ifdefs); }
+			if(error) { cs_log("If you are sure that it is current, add the following line at the beginning of the template to suppress this warning: <!--OSCam;%lu;%s;%s-->", curchecksum, CS_VERSION, ifdefs); }
 			NULLFREE(tplorg);
 		}
 	}
