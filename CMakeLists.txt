@@ -1,5 +1,6 @@
 project (OSCam C)
 
+
 #----------------------- minimum version of cmake to use ------------
 
 cmake_minimum_required(VERSION 2.8.12)
