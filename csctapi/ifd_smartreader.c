@@ -899,13 +899,8 @@ static int32_t smartreader_set_latency_timer(struct s_reader *reader, uint16_t  
 	return 0;
 }
 
-#if defined(__CYGWIN__)
-static WINAPI read_callback(struct libusb_transfer *transfer)
-{
-#else
 static void read_callback(struct libusb_transfer *transfer)
 {
-#endif
 	struct s_reader *reader = (struct s_reader *)transfer->user_data;
 	struct sr_data *crdr_data = reader->crdr_data;
 	int32_t copy_size;

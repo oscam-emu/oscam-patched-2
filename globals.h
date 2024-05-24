@@ -372,7 +372,7 @@
 #define WIKI_URL				"https://wiki.streamboard.tv/wiki"
 #define BOARD_URL				"https://board.streamboard.tv"
 #ifndef CS_VERSION
-#define CS_VERSION				"2.24.05-11784"
+#define CS_VERSION				"2.24.05-11785"
 #endif
 #ifndef CS_GIT_COMMIT
 #define CS_GIT_COMMIT			"a2b4c6d8"
