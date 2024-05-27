@@ -1066,8 +1066,24 @@ static int32_t CAK7_GetCamKey(struct s_reader *reader)
 
 		if(cwekeycount == 0)
 		{
-			rdr_log(reader, "only NUID defined - enter at least CWPK0");
-			return ERROR;
+			if(reader->otpcsc_length)
+			{
+				memcpy(cmd0e + 136, reader->otpcsc, reader->otpcsc_length);
+			}
+			else
+			{
+				cmd0e[136] = 0x00;
+				cmd0e[137] = !reader->cwpkota ? cwekeycount : 0x00;
+			}
+			if(reader->otacsc_length)
+			{
+				memcpy(cmd0e + 138, reader->otacsc, reader->otacsc_length);
+			}
+			else
+			{
+				cmd0e[138] = 0x00;
+				cmd0e[139] = reader->cwpkota ? cwekeycount : 0x00;
+			}
 		}
 		else
 		{
@@ -1078,7 +1094,7 @@ static int32_t CAK7_GetCamKey(struct s_reader *reader)
 			else
 			{
 				cmd0e[136] = 0x00;
-				cmd0e[137] = !reader->cwpkota ? cwekeycount: 0x00;
+				cmd0e[137] = !reader->cwpkota ? cwekeycount : 0x00;
 			}
 			if(reader->otacsc_length)
 			{
@@ -1542,14 +1558,15 @@ static int32_t nagra3_do_ecm(struct s_reader *reader, const ECM_REQUEST *er, str
 				}
 				des_ecb3_decrypt(_cwe0, reader->cwekey[cta_res144]);
 				des_ecb3_decrypt(_cwe1, reader->cwekey[cta_res144]);
+				rdr_log_dbg(reader, D_READER, "CW Decrypt ok");
 			}
 		}
 		else if(cta_res[27] == 0x58)
 		{
 			des_ecb3_decrypt(_cwe0, reader->key3des);
 			des_ecb3_decrypt(_cwe1, reader->key3des);
+			rdr_log_dbg(reader, D_READER, "CW Decrypt ok");
 		}
-		rdr_log_dbg(reader, D_READER, "CW Decrypt ok");
 		memcpy(ea->cw, _cwe0, 0x08);
 		memcpy(ea->cw + 8, _cwe1, 0x08);
 		return OK;
