@@ -1,0 +1,40 @@
+name: create patch
+
+on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - '.github/**'
+  workflow_dispatch:
+
+jobs:
+  create-patch:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: checkout oscam-patched
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+  
+    - name: checkout oscam-emu
+      uses: actions/checkout@v4
+      with:
+        repository: oscam-emu/oscam-emu
+        token: ${{ secrets.ACTIONS_TOKEN }}
+        path: emu
+
+    - name: create patch
+      run: |
+        git diff origin/oscam-gitlab -- > emu/oscam-emu.patch :^.github
+
+    - name: commit changes
+      run: |
+        cd emu
+        git config --global user.name "oscam-emu"
+        git config --global user.email "oscam-emu@users.noreply.github.com"
+        if ! git diff --quiet HEAD; then
+          git commit -am "Update patch"
+          git push
+        fi

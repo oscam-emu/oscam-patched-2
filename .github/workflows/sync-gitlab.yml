@@ -1,0 +1,24 @@
+name: sync gitlab
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: oscam-gitlab
+
+    - name: sync
+      run: |
+        git config --global user.name "oscam-emu"
+        git config --global user.email "oscam-emu@users.noreply.github.com"
+        git remote add --track master streamboard https://git.streamboard.tv/common/oscam.git
+        git fetch streamboard
+        git merge streamboard/master
+        git push --follow-tags origin
