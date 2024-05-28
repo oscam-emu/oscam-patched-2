@@ -31,6 +31,9 @@ ifeq "$(shell ./config.sh --enabled WITH_SSL)" "Y"
 	override USE_SSL=1
 	override USE_LIBCRYPTO=1
 endif
+ifeq "$(shell ./config.sh --enabled WITH_EMU)" "Y"
+	override USE_LIBCRYPTO=1
+endif
 ifdef USE_SSL
 	override USE_LIBCRYPTO=1
 endif
@@ -299,6 +302,32 @@ SRC-$(CONFIG_CS_CACHEEX) += module-cccam-cacheex.c
 SRC-$(CONFIG_MODULE_CCCAM) += module-cccam.c
 SRC-$(CONFIG_MODULE_CCCSHARE) += module-cccshare.c
 SRC-$(CONFIG_MODULE_CONSTCW) += module-constcw.c
+SRC-$(CONFIG_WITH_EMU) += module-emulator.c
+SRC-$(CONFIG_WITH_EMU) += module-emulator-osemu.c
+SRC-$(CONFIG_WITH_EMU) += module-emulator-biss.c
+SRC-$(CONFIG_WITH_EMU) += module-emulator-cryptoworks.c
+SRC-$(CONFIG_WITH_EMU) += module-emulator-director.c
+SRC-$(CONFIG_WITH_EMU) += module-emulator-irdeto.c
+SRC-$(CONFIG_WITH_EMU) += module-emulator-nagravision.c
+SRC-$(CONFIG_WITH_EMU) += module-emulator-omnicrypt.c
+SRC-$(CONFIG_WITH_EMU) += module-emulator-powervu.c
+SRC-$(CONFIG_WITH_EMU) += module-emulator-viaccess.c
+ifeq "$(CONFIG_WITH_EMU)" "y"
+ifeq "$(CONFIG_WITH_SOFTCAM)" "y"
+UNAME := $(shell uname -s)
+ifneq ($(UNAME),Darwin)
+ifndef ANDROID_NDK
+ifndef ANDROID_STANDALONE_TOOLCHAIN
+TOUCH_SK := $(shell touch SoftCam.Key)
+override LDFLAGS += -Wl,--format=binary -Wl,SoftCam.Key -Wl,--format=default
+ifneq ($(uname_S),Cygwin)
+override LDFLAGS += -Wl,-z,noexecstack
+endif
+endif
+endif
+endif
+endif
+endif
 SRC-$(CONFIG_CS_CACHEEX) += module-csp.c
 SRC-$(CONFIG_CW_CYCLE_CHECK) += module-cw-cycle-check.c
 SRC-$(CONFIG_WITH_AZBOX) += module-dvbapi-azbox.c

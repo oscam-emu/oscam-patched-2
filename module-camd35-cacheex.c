@@ -670,7 +670,7 @@ void camd35_cacheex_feature_trigger(struct s_client *cl, int32_t feature, uint8_
 			if(size < 32)
 				size = 32;
 
-			uint8_t token[14];
+			uint8_t token[18];
 
 			// bitfield
 			i2b_buf(2, feature, payload + i);

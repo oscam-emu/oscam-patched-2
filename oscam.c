@@ -41,6 +41,10 @@
 #include "reader-common.h"
 #include "module-gbox.h"
 
+#ifdef WITH_EMU
+	void add_emu_reader(void);
+#endif
+
 #ifdef WITH_SSL
 #include <openssl/crypto.h>
 #include <openssl/ssl.h>
@@ -427,6 +431,8 @@ static void write_versionfile(bool use_stdout)
 #if defined(__arm__) || defined(__aarch64__)
 	write_conf(WITH_ARM_NEON, "ARM NEON (SIMD/MPE) support");
 #endif
+	write_conf(WITH_EMU, "Emulator support");
+	write_conf(WITH_SOFTCAM, "Built-in SoftCam.Key");
 
 	fprintf(fp, "\n");
 	write_conf(MODULE_CAMD33, "camd 3.3x");
@@ -1827,6 +1833,9 @@ int32_t main(int32_t argc, char *argv[])
 	init_readerdb();
 #ifdef MODULE_STREAMRELAY
 	init_stream_server();
+#endif
+#ifdef WITH_EMU
+	add_emu_reader();
 #endif
 	cfg.account = init_userdb();
 	init_signal();
