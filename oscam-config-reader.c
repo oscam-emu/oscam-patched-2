@@ -387,6 +387,7 @@ static void param_fn(const char *token, char *value, void *setting, long data, F
 		{
 			if(len > 0)
 				{ fprintf(stderr, "reader %s parse error, %s=%s\n", token, token, value); }
+			*var_len = 0;
 			memset(var, 0, valid_len);
 		}
 		else
