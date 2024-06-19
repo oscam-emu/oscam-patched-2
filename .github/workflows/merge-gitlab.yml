@@ -8,15 +8,18 @@ on:
 jobs:
   merge:
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: merge
-      run: |
-        git config --global user.name "oscam-emu"
-        git config --global user.email "oscam-emu@users.noreply.github.com"
-        git merge origin/oscam-gitlab -m "Auto-Merge branch 'oscam-gitlab'"
-        git push --follow-tags origin
+      - uses: actions/checkout@v4
+      - name: Fetch Branch
+        run: |
+          git fetch origin oscam-gitlab:oscam-gitlab
+          git reset --hard oscam-gitlab
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          title: Auto-Merge oscam-gitlab
+          body: 
+          committer: oscam-emu <oscam-emu@users.noreply.github.com>
+          author: ${{ github.actor }} <${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com>
+          branch: oscam-gitlab
+          delete-branch: false
